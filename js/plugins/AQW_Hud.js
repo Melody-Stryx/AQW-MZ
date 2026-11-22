@@ -118,11 +118,10 @@
                 ColorManager.mpGaugeColor1(), ColorManager.mpGaugeColor2()
             );
 
-            // Use the same Window_Base text renderer and colour as the
-            // class label, avoiding a separate direct Bitmap.drawText path.
+            // Match RPG Maker's menu actor-name renderer: hpColor(actor)
+            // is the colour used by Window_StatusBase.drawActorName().
             this.contents.fontSize = 19;
-            this.changeTextColor(ColorManager.systemColor());
-            this.changeOutlineColor(ColorManager.outlineColor());
+            this.changeTextColor(ColorManager.hpColor(actor));
             this.drawText(actor.name(), x + 10, y, width - 20, "left");
             this.resetFontSettings();
         }
