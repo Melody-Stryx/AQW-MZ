@@ -118,10 +118,12 @@
                 ColorManager.mpGaugeColor1(), ColorManager.mpGaugeColor2()
             );
 
-            // Draw the name last so later panel elements cannot cover it.
+            // Use the same Window_Base text renderer and colour as the
+            // class label, avoiding a separate direct Bitmap.drawText path.
             this.contents.fontSize = 19;
-            this.changeTextColor(ColorManager.normalColor());
-            this.contents.drawText(actor.name(), x + 10, y, width - 20, 28, "left");
+            this.changeTextColor(ColorManager.systemColor());
+            this.changeOutlineColor(ColorManager.outlineColor());
+            this.drawText(actor.name(), x + 10, y, width - 20, "left");
             this.resetFontSettings();
         }
 
