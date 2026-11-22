@@ -28,6 +28,15 @@
             this.contentsOpacity = 255;
             this._lastSignature = "";
             this._refreshCounter = 0;
+
+            // Render the player name on its own sprite above the HUD contents.
+            // This keeps the identity label independent of the full-screen
+            // window's contents bitmap and its redraw/clipping behaviour.
+            this._playerNameSprite = new Sprite(new Bitmap(272, 36));
+            this._playerNameSprite.x = EDGE + 10;
+            this._playerNameSprite.y = EDGE;
+            this.addChild(this._playerNameSprite);
+
             this.refresh();
         }
 
@@ -118,12 +127,17 @@
                 ColorManager.mpGaugeColor1(), ColorManager.mpGaugeColor2()
             );
 
-            // Match RPG Maker's menu actor-name renderer: hpColor(actor)
-            // is the colour used by Window_StatusBase.drawActorName().
-            this.contents.fontSize = 19;
-            this.changeTextColor(ColorManager.hpColor(actor));
-            this.drawText(actor.name(), x + 10, y, width - 20, "left");
-            this.resetFontSettings();
+            // Draw the name on a dedicated sprite above the HUD window.
+            // The menu's Window_StatusBase uses this same actor colour.
+            const nameBitmap = this._playerNameSprite.bitmap;
+            nameBitmap.clear();
+            nameBitmap.fontFace = $gameSystem.mainFontFace();
+            nameBitmap.fontSize = 19;
+            nameBitmap.textColor = ColorManager.hpColor(actor);
+            nameBitmap.outlineColor = ColorManager.outlineColor();
+            nameBitmap.outlineWidth = 4;
+            nameBitmap.drawText(actor.name(), 0, 0, nameBitmap.width, 36, "left");
+            this._playerNameSprite.visible = true;
         }
 
         drawResourceBar(label, value, max, x, y, width, color1, color2) {
