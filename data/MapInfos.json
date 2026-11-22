@@ -1,12 +1,13 @@
 [
 null,
 {"id":1,"expanded":true,"name":"Guardian Tower","order":1,"parentId":0,"scrollX":1207.7142857142856,"scrollY":757.7142857142857},
-{"id":2,"expanded":false,"name":"Pet Store","order":4,"parentId":3,"scrollX":765.5,"scrollY":609.5,"quick":false},
+{"id":2,"expanded":false,"name":"Pet Store","order":4,"parentId":3,"scrollX":712.5,"scrollY":609.5,"quick":false},
 {"id":3,"expanded":true,"name":"Town Square","order":3,"parentId":0,"scrollX":753.75,"scrollY":585.75,"quick":false},
-{"id":4,"expanded":true,"name":"Trainers","order":5,"parentId":0,"scrollX":464.5,"scrollY":437.5,"quick":false},
-{"id":5,"expanded":false,"name":"Trainers Interior","order":8,"parentId":7,"scrollX":823.5,"scrollY":656.5,"quick":false},
+{"id":4,"expanded":true,"name":"Trainers","order":5,"parentId":0,"scrollX":704.5,"scrollY":451.5,"quick":false},
+{"id":5,"expanded":false,"name":"Trainers Interior","order":8,"parentId":7,"scrollX":704.5,"scrollY":656.5,"quick":false},
 {"id":6,"expanded":false,"name":"Guardian Tower","order":2,"parentId":1,"scrollX":478.3333333333333,"scrollY":255,"quick":false},
 {"id":7,"expanded":true,"name":"Town","order":6,"parentId":0,"scrollX":2025.5,"scrollY":1014.5,"quick":false},
 {"id":8,"expanded":false,"name":"Town","order":7,"parentId":7,"scrollX":1009.5,"scrollY":763.5,"quick":false},
-{"id":9,"expanded":false,"name":"MAP009","order":9,"parentId":0,"scrollX":464.5,"scrollY":437.5,"quick":false}
+{"id":9,"expanded":false,"name":"MAP009","order":9,"parentId":0,"scrollX":464.5,"scrollY":437.5,"quick":false},
+{"id":10,"expanded":true,"name":"Greenguard East","order":10,"parentId":0,"scrollX":704.5,"scrollY":443.5}
 ]
