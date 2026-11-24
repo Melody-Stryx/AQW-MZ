@@ -4,8 +4,29 @@
  */
 (() => {
  "use strict";
- const DOT=/<AQWDoT:\s*([0-9.]+)>/i,HOT=/<AQWHoT:\s*([0-9.]+)>/i;
+ const DOT=/<AQWDoT:\s*([^>]+)>/i,HOT=/<AQWHoT:\s*([0-9.]+)>/i;
  const playerDamageMultiplier=()=>Math.max(2,($gameParty.leader()?.level||1)/50);
+ const dotFormulaCache=new Map();
+ function evaluateDotFormula(expression,caster){
+  let formula=dotFormulaCache.get(expression);
+  if(!formula){
+   formula=new Function("A","return ("+expression+");");
+   dotFormulaCache.set(expression,formula);
+  }
+  const battler=new Proxy(caster,{
+   get(target,key){
+    if(typeof key==="string"){
+     const actual=Object.keys(target).find(name=>name.toLowerCase()===key.toLowerCase());
+     if(actual)return target[actual];
+     const prototypeValue=target[key]??target[Object.getOwnPropertyNames(Object.getPrototypeOf(target)).find(name=>name.toLowerCase()===key.toLowerCase())];
+     return typeof prototypeValue==="function"?prototypeValue.bind(target):prototypeValue;
+    }
+    return target[key];
+   }
+  });
+  const value=Number(formula(battler));
+  return Number.isFinite(value)?Math.max(0,value):0;
+ }
  const turnEnd=Game_Battler.prototype.onTurnEnd;
  Game_Battler.prototype.onTurnEnd=function(){
   turnEnd.call(this);
@@ -16,8 +37,15 @@
   for(const st of this.states()){
    const d=st.note.match(DOT),h=st.note.match(HOT);
    if(d||h){
-    const power=this._aqwEffectPower&&this._aqwEffectPower[st.id]||this.mat;
-    const amount=Math.max(1,Math.floor(power*Number((d||h)[1])));
+    let amount;
+    if(d&&/\\bA\\s*\\./i.test(d[1])){
+     const caster=this._aqwDotCasters&&this._aqwDotCasters[st.id]||$gameParty.leader();
+     amount=Math.floor(evaluateDotFormula(d[1],caster));
+    }else{
+     const power=this._aqwEffectPower&&this._aqwEffectPower[st.id]||this.mat;
+     amount=Math.floor(power*Number((d||h)[1]));
+    }
+    amount=Math.max(1,amount);
     if(d){this.gainHp(-amount);this.startDamagePopup();if(this.isDead())this.performCollapse();}
     else{this.gainHp(amount);this.startDamagePopup();}
    }
@@ -86,6 +114,7 @@
  const apply=Game_Action.prototype.apply;
  Game_Action.prototype.apply=function(target){
   const before=target.hp;
+  const statesBefore=new Set(target.states().map(state=>state.id));
   apply.call(this,target);
   const subject=this.subject(),item=this.item();
   if(item&&target.result().isHit()){
@@ -137,6 +166,13 @@
   if(subject.isStateAffected(37)&&this.isAttack()){
    subject._aqwPreparedHits=(subject._aqwPreparedHits||0)+1;
    if(subject._aqwPreparedHits>=2){subject.removeState(37);subject._aqwPreparedHits=0;subject._aqwPreparedDouble=false;}
+  }
+  const addedStates=target.result().addedStates||[];
+  for(const state of target.states()){
+   if(/<AQWDoT:/i.test(state.note)&&(addedStates.includes(state.id)||!statesBefore.has(state.id))){
+    target._aqwDotCasters=target._aqwDotCasters||{};
+    target._aqwDotCasters[state.id]=subject;
+   }
   }
  };
  const applyGlobal=Game_Action.prototype.applyGlobal;
