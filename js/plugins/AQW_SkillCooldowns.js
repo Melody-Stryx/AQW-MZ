@@ -3,8 +3,11 @@
  * @plugindesc AQW active/passive skill separation and turn-based cooldowns.
  * @help
  * Skill notes:
- * <AQWSkillType: Active|Passive|Basic|EnemyOnly|Internal>
+ * <AQWPassive>
+ * <AQWSkillType: Active|Basic|EnemyOnly|Internal>
  * <AQWCooldownTurns: N>
+ * Skills with <AQWPassive> are visible in the skill list but cannot be
+ * activated manually. Their database effects are applied at battle start.
  * Cooldowns are stored per battler and expire after N battle turns.
  */
 (() => {
@@ -14,19 +17,20 @@
   return m?Number(m[1]):0;
  };
  const type=skill=>{
-  const m=skill&&skill.note&&skill.note.match(/<AQWSkillType:\s*(Active|Passive|Basic|EnemyOnly|Internal)>/i);
+  const m=skill&&skill.note&&skill.note.match(/<AQWSkillType:\s*(Active|Basic|EnemyOnly|Internal)>/i);
   return m?m[1].toLowerCase():"active";
  };
+ const isPassive=skill=>!!(skill&&/<AQWPassive>/i.test(skill.note||""));
  const actorSkills=Game_Actor.prototype.skills;
  Game_Actor.prototype.skills=function(){
-  return actorSkills.call(this).filter(skill=>skill.stypeId!==2&&!["passive","enemyonly","internal"].includes(type(skill)));
+  return actorSkills.call(this).filter(skill=>!["enemyonly","internal"].includes(type(skill)));
  };
  const currentTurn=()=>($gameTroop?$gameTroop.turnCount():0);
  const remaining=(battler,id)=>Math.max(0,((battler._aqwSkillCooldowns||{})[id]||0)-currentTurn());
  const meets=Game_BattlerBase.prototype.meetsSkillConditions;
  Game_BattlerBase.prototype.meetsSkillConditions=function(skill){
   if(!meets.call(this,skill))return false;
-  return type(skill)!=="active"||remaining(this,skill.id)<=0;
+  return !isPassive(skill)&&type(skill)==="active"&&remaining(this,skill.id)<=0;
  };
  const pay=Game_BattlerBase.prototype.paySkillCost;
  Game_BattlerBase.prototype.paySkillCost=function(skill){
@@ -41,27 +45,27 @@
  const draw=Window_SkillList.prototype.drawItem;
  Window_SkillList.prototype.drawItem=function(index){
   const skill=this.itemAt(index);
-  const left=skill&&this._actor?remaining(this._actor,skill.id):0;
-  if(skill&&left>0){
+  if(skill&&(isPassive(skill)||(this._actor&&remaining(this._actor,skill.id)>0))){
    const rect=this.itemLineRect(index);
-   this.changePaintOpacity(false);
-   this.drawItemName(skill,rect.x,rect.y,rect.width-48);
-   this.drawText(left+"T",rect.x,rect.y,rect.width,"right");
+   const passive=isPassive(skill);
+   const label=passive?"PASSIVE":remaining(this._actor,skill.id)+"T";
+   this.changePaintOpacity(!passive);
+   this.drawItemName(skill,rect.x,rect.y,rect.width-64);
+   this.drawText(label,rect.x,rect.y,rect.width,"right");
    this.changePaintOpacity(true);
    return;
   }
   draw.call(this,index);
  };
 
- // Skill Type 2 is the passive category. Apply each learned passive once
- // at battle start, using its database scope and effects without damage,
- // costs, cooldowns, battle-log actions, or turn consumption.
+ // Apply each learned <AQWPassive> once at battle start, using its database
+ // scope and effects without damage, costs, cooldowns, or turn consumption.
  const startBattle=BattleManager.startBattle;
  BattleManager.startBattle=function(){
   startBattle.call(this);
   for(const actor of $gameParty.battleMembers()){
    const passives=$dataSkills.filter(skill=>
-    skill&&skill.stypeId===2&&actor.isLearnedSkill(skill.id)
+    skill&&isPassive(skill)&&actor.isLearnedSkill(skill.id)
    );
    for(const skill of passives){
     const action=new Game_Action(actor);
