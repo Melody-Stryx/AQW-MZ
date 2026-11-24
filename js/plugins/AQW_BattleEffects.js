@@ -7,10 +7,10 @@
  const DOT=/<AQWDoT:\s*([^>]+)>/i,HOT=/<AQWHoT:\s*([0-9.]+)>/i;
  const playerDamageMultiplier=()=>Math.max(2,($gameParty.leader()?.level||1)/50);
  const dotFormulaCache=new Map();
- function evaluateDotFormula(expression,caster){
+ function evaluateDotFormula(expression,caster,target){
   let formula=dotFormulaCache.get(expression);
   if(!formula){
-   formula=new Function("A","return ("+expression+");");
+   formula=new Function("A","B","return ("+expression+");");
    dotFormulaCache.set(expression,formula);
   }
   const battler=new Proxy(caster,{
@@ -24,7 +24,19 @@
     return target[key];
    }
   });
-  const value=Number(formula(battler));
+  const targetBattler=new Proxy(target,{
+   get(object,key){
+    if(typeof key==="string"){
+     const actual=Object.keys(object).find(name=>name.toLowerCase()===key.toLowerCase());
+     if(actual)return object[actual];
+     const prototypeKey=Object.getOwnPropertyNames(Object.getPrototypeOf(object)).find(name=>name.toLowerCase()===key.toLowerCase());
+     const prototypeValue=prototypeKey?object[prototypeKey]:undefined;
+     return typeof prototypeValue==="function"?prototypeValue.bind(object):prototypeValue;
+    }
+    return object[key];
+   }
+  });
+  const value=Number(formula(battler,targetBattler));
   return Number.isFinite(value)?Math.max(0,value):0;
  }
  const turnEnd=Game_Battler.prototype.onTurnEnd;
@@ -38,9 +50,9 @@
    const d=st.note.match(DOT),h=st.note.match(HOT);
    if(d||h){
     let amount;
-    if(d&&/\\bA\\s*\\./i.test(d[1])){
+    if(d&&/\\b[AB]\\s*\\./i.test(d[1])){
      const caster=this._aqwDotCasters&&this._aqwDotCasters[st.id]||$gameParty.leader();
-     amount=Math.floor(evaluateDotFormula(d[1],caster));
+     amount=Math.floor(evaluateDotFormula(d[1],caster,this));
     }else{
      const power=this._aqwEffectPower&&this._aqwEffectPower[st.id]||this.mat;
      amount=Math.floor(power*Number((d||h)[1]));
