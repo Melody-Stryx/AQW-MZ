@@ -5,6 +5,7 @@
 (() => {
  "use strict";
  const DOT=/<AQWDoT:\s*([0-9.]+)>/i,HOT=/<AQWHoT:\s*([0-9.]+)>/i;
+ const playerDamageMultiplier=()=>Math.max(2,($gameParty.leader()?.level||1)/50);
  const turnEnd=Game_Battler.prototype.onTurnEnd;
  Game_Battler.prototype.onTurnEnd=function(){
   turnEnd.call(this);
@@ -17,7 +18,10 @@
    if(d||h){
     const power=this._aqwEffectPower&&this._aqwEffectPower[st.id]||this.mat;
     const amount=Math.max(1,Math.floor(power*Number((d||h)[1])));
-    if(d){this.gainHp(-amount);this.startDamagePopup();if(this.isDead())this.performCollapse();}
+    if(d){
+     const scaledAmount=Math.max(1,Math.round(amount*playerDamageMultiplier()));
+     this.gainHp(-scaledAmount);this.startDamagePopup();if(this.isDead())this.performCollapse();
+    }
     else{this.gainHp(amount);this.startDamagePopup();}
    }
   }
@@ -49,6 +53,7 @@
   if(value>0&&item&&[227,229,232].includes(item.id)){
    value*=1+Math.min(6,subject._aqwMarkStacks||0)*0.05;
   }
+  if(value>0)value*=playerDamageMultiplier();
   return Math.round(value);
  };
  const makeTargets=Game_Action.prototype.makeTargets;
