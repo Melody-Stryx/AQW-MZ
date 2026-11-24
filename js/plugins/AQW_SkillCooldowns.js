@@ -19,7 +19,7 @@
  };
  const actorSkills=Game_Actor.prototype.skills;
  Game_Actor.prototype.skills=function(){
-  return actorSkills.call(this).filter(skill=>!["passive","enemyonly","internal"].includes(type(skill)));
+  return actorSkills.call(this).filter(skill=>skill.stypeId!==2&&!["passive","enemyonly","internal"].includes(type(skill)));
  };
  const currentTurn=()=>($gameTroop?$gameTroop.turnCount():0);
  const remaining=(battler,id)=>Math.max(0,((battler._aqwSkillCooldowns||{})[id]||0)-currentTurn());
@@ -51,5 +51,30 @@
    return;
   }
   draw.call(this,index);
+ };
+
+ // Skill Type 2 is the passive category. Apply each learned passive once
+ // at battle start, using its database scope and effects without damage,
+ // costs, cooldowns, battle-log actions, or turn consumption.
+ const startBattle=BattleManager.startBattle;
+ BattleManager.startBattle=function(){
+  startBattle.call(this);
+  for(const actor of $gameParty.battleMembers()){
+   const passives=$dataSkills.filter(skill=>
+    skill&&skill.stypeId===2&&actor.isLearnedSkill(skill.id)
+   );
+   for(const skill of passives){
+    const action=new Game_Action(actor);
+    action.setSkill(skill.id);
+    const targets=[...new Set(action.makeTargets())];
+    for(const target of targets){
+     target.clearResult();
+     for(const effect of skill.effects){
+      action.applyItemEffect(target,effect);
+     }
+     action.applyItemUserEffect(target);
+    }
+   }
+  }
  };
 })();
