@@ -63,28 +63,43 @@
    }
   }
  };
- // If a formula uses the standard offensive-stat-squared / target-DEF
- // pattern and target DEF is zero, fall back to one offensive-stat factor.
+ // If a required defensive stat is missing or zero, use the formula's
+ // reduced fallback rather than dividing by zero.
  const evalDamageFormula=Game_Action.prototype.evalDamageFormula;
  Game_Action.prototype.evalDamageFormula=function(target){
   const item=this.item();
   const formula=item&&item.damage?String(item.damage.formula):"";
-  if(Number(target.def)===0){
-   const fallback=formula.replace(
-    /(\*\s*a\.(?:atk|mat)\s*)\*\s*a\.(atk|mat)\s*\/\s*b\.def\b/i,
-    "$1"
-   );
-   if(fallback!==formula){
-    const a=this.subject();
-    const b=target;
-    const v=$gameVariables._data;
-    const sign=[3,4].includes(item.damage.type)?-1:1;
-    try{
-     const value=Math.max(eval(fallback),0)*sign;
-     return Number.isFinite(value)?value:0;
-    }catch(error){
-     return 0;
-    }
+  const missingDef=!(Number(target.def)>0);
+  const missingMdf=!(Number(target.mdf)>0);
+  let fallback=null;
+
+  // Hybrid basic attack: if either DEF or MDF is unavailable, retain only
+  // the combined offensive-stat base multiplier.
+  const hybrid=formula.match(/^\s*(\(?\s*a\.atk\s*\+\s*a\.mat\s*\)?\s*\*\s*0?\.75)\s*\*\s*a\.(?:atk|mat)\s*[/]\s*\(\s*b\.def\s*\+\s*b\.mdf\s*\)\s*\*\s*0?\.75\s*$/i);
+  if(hybrid&&(missingDef||missingMdf)){
+   fallback=hybrid[1];
+  }else{
+   // Matching ATK/DEF or MAT/MDF squared-stat formulas lose the second
+   // offensive-stat factor and division when their paired defence is absent.
+   const simple=formula.match(/^(\s*\S[\s\S]*?\*\s*a\.(atk|mat)\s*)\*\s*a\.(atk|mat)\s*[/]\s*b\.(def|mdf)\b\s*$/i);
+   if(simple){
+    const attackStat=simple[3].toLowerCase();
+    const defenceStat=simple[4].toLowerCase();
+    const paired=attackStat==="atk"&&defenceStat==="def"||attackStat==="mat"&&defenceStat==="mdf";
+    if(paired&&!(Number(target[defenceStat])>0))fallback=simple[1];
+   }
+  }
+
+  if(fallback!==null){
+   const a=this.subject();
+   const b=target;
+   const v=$gameVariables._data;
+   const sign=[3,4].includes(item.damage.type)?-1:1;
+   try{
+    const value=Math.max(eval(fallback),0)*sign;
+    return Number.isFinite(value)?value:0;
+   }catch(error){
+    return 0;
    }
   }
   return evalDamageFormula.call(this,target);
