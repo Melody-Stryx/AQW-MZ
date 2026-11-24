@@ -63,6 +63,30 @@
    }
   }
  };
+ // Prevent division-by-zero damage formulas when a target has 0 DEF.
+ // Only b.def is floored; all other target properties retain normal behavior.
+ const evalDamageFormula=Game_Action.prototype.evalDamageFormula;
+ Game_Action.prototype.evalDamageFormula=function(target){
+  const item=this.item();
+  const a=this.subject();
+  const b=new Proxy(target,{
+   get(object,key,receiver){
+    if(key==="def"){
+     const value=Reflect.get(object,key,receiver);
+     return Math.max(1,Number(value)||0);
+    }
+    return Reflect.get(object,key,receiver);
+   }
+  });
+  const v=$gameVariables._data;
+  const sign=[3,4].includes(item.damage.type)?-1:1;
+  try{
+   const value=Math.max(eval(item.damage.formula),0)*sign;
+   return Number.isFinite(value)?value:0;
+  }catch(error){
+   return 0;
+  }
+ };
  const make=Game_Action.prototype.makeDamageValue;
  Game_Action.prototype.makeDamageValue=function(target,critical){
   let value=make.call(this,target,critical);
