@@ -198,13 +198,13 @@
     Game_Actor.prototype.learnSkill = function(skillId) {
         this.ensureAqwSkillTracking();
         if (this._aqwIgnoreEngineClassLearning) return;
-        const wasLearned = this.isLearnedSkill(skillId);
         _Game_Actor_learnSkill.call(this, skillId);
-        if (wasLearned) return;
 
         if (this._aqwClassSkillContext) {
             uniquePush(this._aqwClassSkillIds, skillId);
-        } else if (!this._aqwIgnoreEngineClassLearning) {
+        } else {
+            // Record independent ownership even if the active class already
+            // grants this skill. It must survive a later class switch.
             uniquePush(this._aqwIndependentSkillIds, skillId);
         }
     };
