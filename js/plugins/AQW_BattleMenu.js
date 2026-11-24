@@ -14,8 +14,16 @@
     "use strict";
 
     // Skip the initial Fight / Run party command window.
+    const _Scene_Battle_startPartyCommandSelection =
+        Scene_Battle.prototype.startPartyCommandSelection;
+
     Scene_Battle.prototype.startPartyCommandSelection = function() {
-        this.startActorCommandSelection();
+        this._currentActor = BattleManager.actor();
+        if (this._currentActor) {
+            this.startActorCommandSelection();
+        } else {
+            _Scene_Battle_startPartyCommandSelection.call(this);
+        }
     };
 
     // Add the Run handler to the actor command window.
