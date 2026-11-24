@@ -1,10 +1,10 @@
 /*:
  * @target MZ
- * @plugindesc Streamlines battle commands: opens actor commands immediately, adds Attack to Skills, and places Run last.
+ * @plugindesc Streamlines battle commands: skips the party menu, adds Attack to Skills, and places Run last.
  * @author AQW-MZ
  *
  * @help
- * Removes the initial Fight / Run party command menu.
+ * Skips the initial Fight / Run party command menu.
  * The actor command menu opens immediately.
  * Attack is listed inside Skills rather than as a separate command.
  * Run is added as the final actor command.
@@ -13,7 +13,8 @@
 (() => {
     "use strict";
 
-    // Hide and disable the party command window entirely.
+    // Keep the party command window hidden; the battle input phase still
+    // needs to advance past the party-command slot before actor input begins.
     const _Scene_Battle_createPartyCommandWindow =
         Scene_Battle.prototype.createPartyCommandWindow;
 
@@ -23,15 +24,15 @@
         this._partyCommandWindow.deactivate();
     };
 
-    // Never enter the Fight / Run party command phase.
+    // Skip the party-command phase correctly by advancing the input sequence.
     Scene_Battle.prototype.startPartyCommandSelection = function() {
         this._partyCommandWindow.hide();
         this._partyCommandWindow.close();
         this._partyCommandWindow.deactivate();
-        this.startActorCommandSelection();
+        this.selectNextCommand();
     };
 
-    // Back from actor commands must never reopen the party command window.
+    // Back from the first actor's commands must not return to the party menu.
     Scene_Battle.prototype.selectPreviousCommand = function() {
         this.startActorCommandSelection();
     };
