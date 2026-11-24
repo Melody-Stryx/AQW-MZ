@@ -130,7 +130,8 @@
   apply.call(this,target);
   const subject=this.subject(),item=this.item();
   const result=target.result();
-  if(result.used){
+  const grantsMpRecovery=item&&(item.id===1||/<AQWMPRecovery>/i.test(item.note||""));
+  if(grantsMpRecovery&&result.used){
    if(result.missed||result.evaded){
     target.gainMp(10);
    }else if(result.isHit()){
