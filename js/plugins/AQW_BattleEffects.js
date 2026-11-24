@@ -131,12 +131,15 @@
   const subject=this.subject(),item=this.item();
   const result=target.result();
   const grantsAttackerMpRecovery=item&&(item.id===1||/<AQWMPRecovery>/i.test(item.note||""));
+  const recoverMpSilently=(battler,amount)=>{
+   battler.setMp(battler.mp+amount);
+  };
   if(result.used){
    if(result.missed||result.evaded){
-    target.gainMp(10);
+    recoverMpSilently(target,10);
    }else if(result.isHit()){
-    if(grantsAttackerMpRecovery)subject.gainMp(result.critical?10:5);
-    if(result.hpDamage>0||result.mpDamage>0)target.gainMp(result.critical?10:5);
+    if(grantsAttackerMpRecovery)recoverMpSilently(subject,result.critical?10:5);
+    if(result.hpDamage>0||result.mpDamage>0)recoverMpSilently(target,result.critical?10:5);
    }
   }
   if(item&&target.result().isHit()){
