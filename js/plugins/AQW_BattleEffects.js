@@ -18,10 +18,7 @@
    if(d||h){
     const power=this._aqwEffectPower&&this._aqwEffectPower[st.id]||this.mat;
     const amount=Math.max(1,Math.floor(power*Number((d||h)[1])));
-    if(d){
-     const scaledAmount=Math.max(1,Math.round(amount*playerDamageMultiplier()));
-     this.gainHp(-scaledAmount);this.startDamagePopup();if(this.isDead())this.performCollapse();
-    }
+    if(d){this.gainHp(-amount);this.startDamagePopup();if(this.isDead())this.performCollapse();}
     else{this.gainHp(amount);this.startDamagePopup();}
    }
   }
