@@ -131,14 +131,11 @@
   const subject=this.subject(),item=this.item();
   const result=target.result();
   if(result.used){
-   if(result.missed){
-    subject.gainMp(10);
-   }else if(result.evaded){
-    subject.gainMp(10);
+   if(result.missed||result.evaded){
     target.gainMp(10);
-   }else{
+   }else if(result.isHit()){
     subject.gainMp(result.critical?10:5);
-    target.gainMp(5);
+    if(result.hpDamage>0||result.mpDamage>0)target.gainMp(5);
    }
   }
   if(item&&target.result().isHit()){
