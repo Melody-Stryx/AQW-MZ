@@ -136,7 +136,7 @@
     target.gainMp(10);
    }else if(result.isHit()){
     if(grantsAttackerMpRecovery)subject.gainMp(result.critical?10:5);
-    if(result.hpDamage>0||result.mpDamage>0)target.gainMp(5);
+    if(result.hpDamage>0||result.mpDamage>0)target.gainMp(result.critical?10:5);
    }
   }
   if(item&&target.result().isHit()){
