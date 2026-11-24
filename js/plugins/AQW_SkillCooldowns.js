@@ -83,6 +83,10 @@
  const startBattle=BattleManager.startBattle;
  BattleManager.startBattle=function(){
   startBattle.call(this);
+  // Cooldowns are battle-local: no battler carries one into a new battle.
+  for(const battler of [...$gameParty.members(),...$gameTroop.members()]){
+   battler._aqwSkillCooldowns={};
+  }
   for(const actor of $gameParty.battleMembers()){
    applyPassives(actor,actor.skills().filter(skill=>isPassive(skill)).map(skill=>skill.id));
   }
