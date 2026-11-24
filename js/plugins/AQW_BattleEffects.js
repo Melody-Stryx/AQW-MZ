@@ -50,7 +50,7 @@
    const d=st.note.match(DOT),h=st.note.match(HOT);
    if(d||h){
     let amount;
-    if(d&&/\\b[AB]\\s*\\./i.test(d[1])){
+    if(d&&/\b[AB]\s*\./i.test(d[1])){
      const caster=this._aqwDotCasters&&this._aqwDotCasters[st.id]||$gameParty.leader();
      amount=Math.floor(evaluateDotFormula(d[1],caster,this));
     }else{
