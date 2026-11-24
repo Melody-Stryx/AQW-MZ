@@ -8,8 +8,7 @@
  * Displays class rank progression at the lower left, Moolah at the lower
  * center, and player level progression at the lower right.
  *
- * Class rank meter uses AQW's 10-rank class scale. Class XP is also shown
- * numerically because rank XP thresholds have not yet been defined.
+ * The lower-left class meter displays the active class name and rank.
  *
  * Place this plugin after AQW_ClassSystem and AQW_PetSystem.
  */
@@ -28,14 +27,6 @@
             this.contentsOpacity = 255;
             this._lastSignature = "";
             this._refreshCounter = 0;
-
-            // Render the player name on its own sprite above the HUD contents.
-            // This keeps the identity label independent of the full-screen
-            // window's contents bitmap and its redraw/clipping behaviour.
-            this._playerNameSprite = new Sprite(new Bitmap(272, 36));
-            this._playerNameSprite.x = EDGE + 10;
-            this._playerNameSprite.y = EDGE;
-            this.addChild(this._playerNameSprite);
 
             this.refresh();
         }
@@ -86,7 +77,6 @@
             const actor = this.playerActor();
             if (!actor) return;
 
-            this.drawPlayerPanel(actor);
             this.drawClassProgress(actor);
             this.drawMoolah();
             this.drawLevelProgress(actor);
@@ -97,64 +87,6 @@
             c.fillRect(x, y, width, height, "rgba(7, 12, 22, 0.82)");
             c.fillRect(x, y, width, 2, accent || "rgba(110, 178, 230, 0.9)");
             c.fillRect(x, y + height - 1, width, 1, "rgba(255,255,255,0.12)");
-        }
-
-        drawPlayerPanel(actor) {
-            const x = EDGE;
-            const y = EDGE;
-            const width = Math.min(292, this.contentsWidth() * 0.36);
-            const height = 92;
-            this.drawPanel(x, y, width, height, "rgba(105, 190, 245, 0.95)");
-
-            const data = this.activeClassData(actor);
-            const classId = data ? data.id : 0;
-            const className = data ? data.name : "No Class";
-            const rank = classId && actor.classRank ? actor.classRank(classId) : 1;
-
-            this.contents.fontSize = 13;
-            this.changeTextColor(ColorManager.systemColor());
-            this.drawText(
-                className + " Rank " + String(rank).padStart(2, "0"),
-                x + 10, y + 25, width - 20, "left"
-            );
-
-            this.drawResourceBar(
-                "HP", actor.hp, actor.mhp, x + 10, y + 48, width - 20,
-                ColorManager.hpGaugeColor1(), ColorManager.hpGaugeColor2()
-            );
-            this.drawResourceBar(
-                "MP", actor.mp, actor.mmp, x + 10, y + 67, width - 20,
-                ColorManager.mpGaugeColor1(), ColorManager.mpGaugeColor2()
-            );
-
-            // Draw the name on a dedicated sprite above the HUD window.
-            // The menu's Window_StatusBase uses this same actor colour.
-            const nameBitmap = this._playerNameSprite.bitmap;
-            nameBitmap.clear();
-            nameBitmap.fontFace = $gameSystem.mainFontFace();
-            nameBitmap.fontSize = 19;
-            nameBitmap.textColor = ColorManager.hpColor(actor);
-            nameBitmap.outlineColor = ColorManager.outlineColor();
-            nameBitmap.outlineWidth = 4;
-            nameBitmap.drawText(actor.name(), 0, 0, nameBitmap.width, 36, "left");
-            this._playerNameSprite.visible = true;
-        }
-
-        drawResourceBar(label, value, max, x, y, width, color1, color2) {
-            const labelWidth = 25;
-            const valueWidth = 76;
-            const gaugeX = x + labelWidth + 5;
-            const gaugeWidth = Math.max(20, width - labelWidth - valueWidth - 10);
-            this.contents.fontSize = 13;
-            this.changeTextColor(ColorManager.systemColor());
-            this.drawText(label, x, y - 3, labelWidth, "left");
-            this.drawAqwGauge(gaugeX, y + 3, gaugeWidth, max > 0 ? value / max : 0, color1, color2, 7);
-            this.contents.fontSize = 12;
-            this.changeTextColor(ColorManager.normalColor());
-            this.drawText(
-                this.formatNumber(value) + "/" + this.formatNumber(max),
-                gaugeX + gaugeWidth + 7, y - 3, valueWidth, "right"
-            );
         }
 
         drawClassProgress(actor) {
@@ -177,8 +109,7 @@
             this.contents.fontSize = 11;
             this.changeTextColor(ColorManager.systemColor());
             this.drawText(
-                "CLASS XP  " + this.formatNumber(progress.current) + " / " +
-                this.formatNumber(progress.required),
+                name + " Rank " + String(rank).padStart(2, "0"),
                 x, gaugeY - 21, width, "left"
             );
             this.resetFontSettings();
