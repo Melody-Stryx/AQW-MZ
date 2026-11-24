@@ -60,25 +60,34 @@
 
  // Apply each learned <AQWPassive> once at battle start, using its database
  // scope and effects without damage, costs, cooldowns, or turn consumption.
+ const applyPassives=function(battler,skillIds){
+  const passiveIds=[...new Set(skillIds)].filter(id=>{
+   const skill=$dataSkills[id];
+   return skill&&isPassive(skill);
+  });
+  for(const skillId of passiveIds){
+   const skill=$dataSkills[skillId];
+   const action=new Game_Action(battler);
+   action.setSkill(skillId);
+   const targets=[...new Set(action.makeTargets())];
+   for(const target of targets){
+    target.clearResult();
+    for(const effect of skill.effects){
+     action.applyItemEffect(target,effect);
+    }
+    action.applyItemUserEffect(target);
+   }
+  }
+ };
  const startBattle=BattleManager.startBattle;
  BattleManager.startBattle=function(){
   startBattle.call(this);
   for(const actor of $gameParty.battleMembers()){
-   const passives=$dataSkills.filter(skill=>
-    skill&&isPassive(skill)&&actor.isLearnedSkill(skill.id)
-   );
-   for(const skill of passives){
-    const action=new Game_Action(actor);
-    action.setSkill(skill.id);
-    const targets=[...new Set(action.makeTargets())];
-    for(const target of targets){
-     target.clearResult();
-     for(const effect of skill.effects){
-      action.applyItemEffect(target,effect);
-     }
-     action.applyItemUserEffect(target);
-    }
-   }
+   applyPassives(actor,actor.skills().filter(skill=>isPassive(skill)).map(skill=>skill.id));
+  }
+  for(const enemy of $gameTroop.members()){
+   const skillIds=(enemy.enemy().actions||[]).map(action=>action.skillId);
+   applyPassives(enemy,skillIds);
   }
  };
 })();
