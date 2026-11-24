@@ -13,21 +13,27 @@
 (() => {
     "use strict";
 
-    // Skip the initial Fight / Run party command window.
-    const _Scene_Battle_startPartyCommandSelection =
-        Scene_Battle.prototype.startPartyCommandSelection;
+    // Hide and disable the party command window entirely.
+    const _Scene_Battle_createPartyCommandWindow =
+        Scene_Battle.prototype.createPartyCommandWindow;
 
+    Scene_Battle.prototype.createPartyCommandWindow = function() {
+        _Scene_Battle_createPartyCommandWindow.call(this);
+        this._partyCommandWindow.hide();
+        this._partyCommandWindow.deactivate();
+    };
+
+    // Never enter the Fight / Run party command phase.
     Scene_Battle.prototype.startPartyCommandSelection = function() {
+        this._partyCommandWindow.hide();
         this._partyCommandWindow.close();
         this._partyCommandWindow.deactivate();
+        this.startActorCommandSelection();
+    };
 
-        // Advance the battle manager's input actor exactly as the Fight command does.
-        // Checking BattleManager.actor() alone can return a stale or unset actor.
-        if (BattleManager.selectNextCommand()) {
-            this.startActorCommandSelection();
-        } else {
-            _Scene_Battle_startPartyCommandSelection.call(this);
-        }
+    // Back from actor commands must never reopen the party command window.
+    Scene_Battle.prototype.selectPreviousCommand = function() {
+        this.startActorCommandSelection();
     };
 
     // Add the Run handler to the actor command window.
