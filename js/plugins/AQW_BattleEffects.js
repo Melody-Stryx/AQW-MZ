@@ -63,29 +63,31 @@
    }
   }
  };
- // Prevent division-by-zero damage formulas when a target has 0 DEF.
- // Only b.def is floored; all other target properties retain normal behavior.
+ // If a formula uses the standard offensive-stat-squared / target-DEF
+ // pattern and target DEF is zero, fall back to one offensive-stat factor.
  const evalDamageFormula=Game_Action.prototype.evalDamageFormula;
  Game_Action.prototype.evalDamageFormula=function(target){
   const item=this.item();
-  const a=this.subject();
-  const b=new Proxy(target,{
-   get(object,key,receiver){
-    if(key==="def"){
-     const value=Reflect.get(object,key,receiver);
-     return Math.max(1,Number(value)||0);
+  const formula=item&&item.damage?String(item.damage.formula):"";
+  if(Number(target.def)===0){
+   const fallback=formula.replace(
+    /(\*\s*a\.(?:atk|mat)\s*)\*\s*a\.(atk|mat)\s*\/\s*b\.def\b/i,
+    "$1"
+   );
+   if(fallback!==formula){
+    const a=this.subject();
+    const b=target;
+    const v=$gameVariables._data;
+    const sign=[3,4].includes(item.damage.type)?-1:1;
+    try{
+     const value=Math.max(eval(fallback),0)*sign;
+     return Number.isFinite(value)?value:0;
+    }catch(error){
+     return 0;
     }
-    return Reflect.get(object,key,receiver);
    }
-  });
-  const v=$gameVariables._data;
-  const sign=[3,4].includes(item.damage.type)?-1:1;
-  try{
-   const value=Math.max(eval(item.damage.formula),0)*sign;
-   return Number.isFinite(value)?value:0;
-  }catch(error){
-   return 0;
   }
+  return evalDamageFormula.call(this,target);
  };
  const make=Game_Action.prototype.makeDamageValue;
  Game_Action.prototype.makeDamageValue=function(target,critical){
