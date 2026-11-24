@@ -18,8 +18,12 @@
         Scene_Battle.prototype.startPartyCommandSelection;
 
     Scene_Battle.prototype.startPartyCommandSelection = function() {
-        this._currentActor = BattleManager.actor();
-        if (this._currentActor) {
+        this._partyCommandWindow.close();
+        this._partyCommandWindow.deactivate();
+
+        // Advance the battle manager's input actor exactly as the Fight command does.
+        // Checking BattleManager.actor() alone can return a stale or unset actor.
+        if (BattleManager.selectNextCommand()) {
             this.startActorCommandSelection();
         } else {
             _Scene_Battle_startPartyCommandSelection.call(this);
