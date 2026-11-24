@@ -6,6 +6,7 @@ var $plugins =
 {"name":"AQW_PetSystem","status":true,"description":"Single-player party and autonomous, untargetable pets.","parameters":{}},
 {"name":"AQW_Hud","status":true,"description":"AQW-style bottom HUD for class and player progression, and Moolah.","parameters":{}},
 {"name":"AQW_BattleEffects","status":true,"description":"AQW class combat formulas, states, damage-over-time and healing-over-time.","parameters":{}},
+{"name":"AQW_BattleMenu","status":true,"description":"Streamlined battle commands with Attack in Skills and Run at the bottom.","parameters":{}},
 {"name":"AQW_SkillCooldowns","status":true,"description":"AQW active/passive skills and turn-based cooldowns.","parameters":{}},
 {"name":"AQW_MenuWrap","status":true,"description":"Automatic word wrapping for menu help descriptions.","parameters":{}},
 {"name":"AQW_WrapDialogue","status":true,"description":"Automatic word wrapping for dialogue messages.","parameters":{}},
