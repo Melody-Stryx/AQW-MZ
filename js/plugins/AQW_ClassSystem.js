@@ -197,6 +197,7 @@
     const _Game_Actor_learnSkill = Game_Actor.prototype.learnSkill;
     Game_Actor.prototype.learnSkill = function(skillId) {
         this.ensureAqwSkillTracking();
+        if (this._aqwIgnoreEngineClassLearning) return;
         const wasLearned = this.isLearnedSkill(skillId);
         _Game_Actor_learnSkill.call(this, skillId);
         if (wasLearned) return;
