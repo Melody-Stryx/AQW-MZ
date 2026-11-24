@@ -30,7 +30,8 @@
  const meets=Game_BattlerBase.prototype.meetsSkillConditions;
  Game_BattlerBase.prototype.meetsSkillConditions=function(skill){
   if(!meets.call(this,skill))return false;
-  return !isPassive(skill)&&type(skill)==="active"&&remaining(this,skill.id)<=0;
+  if(isPassive(skill))return false;
+  return type(skill)!=="active"||remaining(this,skill.id)<=0;
  };
  const pay=Game_BattlerBase.prototype.paySkillCost;
  Game_BattlerBase.prototype.paySkillCost=function(skill){
