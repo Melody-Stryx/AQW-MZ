@@ -130,12 +130,12 @@
   apply.call(this,target);
   const subject=this.subject(),item=this.item();
   const result=target.result();
-  const grantsMpRecovery=item&&(item.id===1||/<AQWMPRecovery>/i.test(item.note||""));
-  if(grantsMpRecovery&&result.used){
+  const grantsAttackerMpRecovery=item&&(item.id===1||/<AQWMPRecovery>/i.test(item.note||""));
+  if(result.used){
    if(result.missed||result.evaded){
     target.gainMp(10);
    }else if(result.isHit()){
-    subject.gainMp(result.critical?10:5);
+    if(grantsAttackerMpRecovery)subject.gainMp(result.critical?10:5);
     if(result.hpDamage>0||result.mpDamage>0)target.gainMp(5);
    }
   }
