@@ -129,6 +129,18 @@
   const statesBefore=new Set(target.states().map(state=>state.id));
   apply.call(this,target);
   const subject=this.subject(),item=this.item();
+  const result=target.result();
+  if(result.used){
+   if(result.missed){
+    subject.gainMp(10);
+   }else if(result.evaded){
+    subject.gainMp(10);
+    target.gainMp(10);
+   }else{
+    subject.gainMp(result.critical?10:5);
+    target.gainMp(5);
+   }
+  }
   if(item&&target.result().isHit()){
    if(item.id===107){
     if(target.isStateAffected(32))target.removeState(32);
