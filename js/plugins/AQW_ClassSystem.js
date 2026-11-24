@@ -4,13 +4,14 @@
  * @author AQW-MZ
  *
  * @help
+ * Weapon equipment occupies slot 1 and cannot be empty.
  * Class equipment occupies equipment slot 2 (the Armor slot).
  * Class items use <AQWClassId: ID>. <ClassChange: ID> is also supported.
  * Existing item names such as "Warrior, Rank 1" are supported as a fallback.
  *
  * If an actor starts without class equipment, the matching class armor is
- * equipped automatically. The class slot cannot be cleared or replaced by
- * a non-class item.
+ * equipped automatically. The weapon and class slots cannot be cleared.
+ * The class slot also cannot be replaced by a non-class item.
  *
  * Class XP and rank are stored independently for every class:
  *   actor.classProgress(classId) -> { xp, rank }
@@ -82,6 +83,21 @@
             item && item.etypeId === CLASS_EQUIP_TYPE_ID &&
             classIdFromItem(item) === Number(classId)
         ) || null;
+    }
+
+    function defaultWeapon(actor) {
+        const startingWeaponId = actor.actor().equips[0];
+        const startingWeapon = startingWeaponId > 0
+            ? $dataWeapons[startingWeaponId]
+            : null;
+        if (startingWeapon && actor.canEquip(startingWeapon)) return startingWeapon;
+        return ($dataWeapons || []).find(item =>
+            item && actor.canEquip(item)
+        ) || null;
+    }
+
+    function isWeaponSlot(actor, slotId) {
+        return slotId === 0 && actor.equipSlots()[0] === 1;
     }
 
     function uniquePush(array, value) {
@@ -332,6 +348,7 @@
 
     const _Game_Actor_changeEquip = Game_Actor.prototype.changeEquip;
     Game_Actor.prototype.changeEquip = function(slotId, item) {
+        if (isWeaponSlot(this, slotId) && !DataManager.isWeapon(item)) return;
         if (isClassSlot(this, slotId) && !classIdFromItem(item)) return;
         _Game_Actor_changeEquip.call(this, slotId, item);
         if (isClassSlot(this, slotId)) this.syncAqwClassFromEquipment();
@@ -339,19 +356,30 @@
 
     const _Game_Actor_forceChangeEquip = Game_Actor.prototype.forceChangeEquip;
     Game_Actor.prototype.forceChangeEquip = function(slotId, item) {
+        if (isWeaponSlot(this, slotId) && !DataManager.isWeapon(item)) return;
         if (isClassSlot(this, slotId) && !classIdFromItem(item)) return;
         _Game_Actor_forceChangeEquip.call(this, slotId, item);
         if (isClassSlot(this, slotId)) this.syncAqwClassFromEquipment();
     };
 
-    // MZ can clear equipment during validation. Restore the active class item
-    // if another system attempts to leave the mandatory class slot empty.
+    // MZ can clear equipment during validation. Restore the previous weapon
+    // and class item if another system attempts to leave either slot empty.
     const _Game_Actor_releaseUnequippableItems = Game_Actor.prototype.releaseUnequippableItems;
     Game_Actor.prototype.releaseUnequippableItems = function(forcing) {
+        const previousWeapon = isWeaponSlot(this, 0) ? this.equips()[0] : null;
         const previousClassItem = isClassSlot(this, CLASS_SLOT_ID)
             ? this.equips()[CLASS_SLOT_ID]
             : null;
         _Game_Actor_releaseUnequippableItems.call(this, forcing);
+
+        if (isWeaponSlot(this, 0) && !this.equips()[0]) {
+            const restoreWeapon = DataManager.isWeapon(previousWeapon)
+                ? previousWeapon
+                : defaultWeapon(this);
+            if (restoreWeapon && this._equips[0]) {
+                this._equips[0].setObject(restoreWeapon);
+            }
+        }
 
         if (isClassSlot(this, CLASS_SLOT_ID) && !this.equips()[CLASS_SLOT_ID]) {
             const restore = classIdFromItem(previousClassItem)
