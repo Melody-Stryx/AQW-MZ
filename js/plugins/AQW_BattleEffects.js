@@ -233,26 +233,5 @@
   if(this.isStateAffected(51))value*=0.5;
   return Math.floor(value);
  };
- const passiveMap={
-  2:[[200,45],[202,46]],
-  3:[[209,47],[211,48]],
-  4:[[187,56],[234,61]],
-  5:[[233,55],[202,46]],
-  8:[[230,58],[231,59]],
-  15:[[239,63],[240,64],[242,65]]
- };
- const refreshPassives=function(){
-  if(!this.isActor())return;
-  const id=this._aqwActiveClassId||this._classId;
-  const entries=passiveMap[id]||[];
-  for(const pair of Object.values(passiveMap)){for(const entry of pair)this.removeState(entry[1]);}
-  for(const [skillId,stateId] of entries){if(this.isLearnedSkill(skillId))this.addState(stateId);}
- };
- const refreshLearnings=Game_Actor.prototype.refreshAqwClassSkills;
- if(refreshLearnings){
-  Game_Actor.prototype.refreshAqwClassSkills=function(classId){
-   refreshLearnings.call(this,classId);
-   refreshPassives.call(this);
-  };
- }
+
 })();
