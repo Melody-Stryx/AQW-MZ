@@ -35,12 +35,12 @@
         return actor.equips().map(petActorId).filter(id => id > 0);
     }
 
-    function syncPets(actor) {
+    function syncPets(actor, includePets = $gameParty.inBattle()) {
         // The player is the only party leader. Do not depend on $gameParty.members()
         // here because that list intentionally hides pets outside battle.
         if (!actor || actor.actorId() !== PLAYER_ACTOR_ID) return;
 
-        const wanted = new Set(equippedPetIds(actor));
+        const wanted = includePets ? new Set(equippedPetIds(actor)) : new Set();
         const currentPetIds = ($gameParty._actors || []).filter(id => {
             const member = $gameActors.actor(id);
             return member && member.isAqwPet && member.isAqwPet();
@@ -118,10 +118,17 @@
         return this._actors.length;
     };
 
-    // Reconcile the equipped summon before RPG Maker builds the battle roster.
+    // Remove pets after battle so the exploration party stays clean.
+    const _Game_Party_onBattleEnd = Game_Party.prototype.onBattleEnd;
+    Game_Party.prototype.onBattleEnd = function() {
+        _Game_Party_onBattleEnd.call(this);
+        syncPets($gameActors.actor(PLAYER_ACTOR_ID), false);
+    };
+
+    // Add equipped summons before RPG Maker initializes the battle roster.
     const _BattleManager_setup = BattleManager.setup;
     BattleManager.setup = function(troopId, canEscape, canLose) {
-        syncPets($gameActors.actor(PLAYER_ACTOR_ID));
+        syncPets($gameActors.actor(PLAYER_ACTOR_ID), true);
         _BattleManager_setup.call(this, troopId, canEscape, canLose);
     };
 })();
