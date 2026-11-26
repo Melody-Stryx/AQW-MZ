@@ -36,25 +36,42 @@
     }
 
     function syncPets(actor) {
-        if (!actor || actor !== $gameParty.leader()) return;
+        // The player is the only party leader. Do not depend on $gameParty.members()
+        // here because that list intentionally hides pets outside battle.
+        if (!actor || actor.actorId() !== PLAYER_ACTOR_ID) return;
+
         const wanted = new Set(equippedPetIds(actor));
-        for (const member of $gameParty.allMembers().slice()) {
-            if (member.isAqwPet && member.isAqwPet() && !wanted.has(member.actorId())) {
-                $gameParty.removeActor(member.actorId());
+        const currentPetIds = ($gameParty._actors || []).filter(id => {
+            const member = $gameActors.actor(id);
+            return member && member.isAqwPet && member.isAqwPet();
+        });
+
+        for (const id of currentPetIds) {
+            if (!wanted.has(id)) {
+                _Game_Party_removeActor.call($gameParty, id);
             }
         }
+
         for (const id of wanted) {
             const pet = $gameActors.actor(id);
-            if (pet && pet.isAqwPet() && !$gameParty.allMembers().includes(pet)) {
-                $gameParty.addActor(id);
+            if (pet && pet.isAqwPet() && !$gameParty._actors.includes(id)) {
+                _Game_Party_addActor.call($gameParty, id);
             }
         }
+
+        // Refresh party/map state after roster changes.
+        if ($gamePlayer) $gamePlayer.refresh();
+        if ($gameMap) $gameMap.requestRefresh();
     }
+
+    const PLAYER_ACTOR_ID = 1;
+    const _Game_Party_addActor = Game_Party.prototype.addActor;
+    const _Game_Party_removeActor = Game_Party.prototype.removeActor;
 
     const _Game_Actor_changeEquip = Game_Actor.prototype.changeEquip;
     Game_Actor.prototype.changeEquip = function(slotId, item) {
         _Game_Actor_changeEquip.call(this, slotId, item);
-        if (this === $gameParty.leader()) syncPets(this);
+        if (this.actorId() === PLAYER_ACTOR_ID) syncPets(this);
     };
 
     const _Game_Actor_forceChangeEquip = Game_Actor.prototype.forceChangeEquip;
@@ -75,25 +92,36 @@
         return targets.filter(target => !target.isAqwPet || !target.isAqwPet());
     };
 
+    // Event commands and plugins may equip items through different methods.
+    // Reconcile after an equipment-by-ID operation as well.
+    const _Game_Actor_changeEquipById = Game_Actor.prototype.changeEquipById;
+    Game_Actor.prototype.changeEquipById = function(etypeId, itemId) {
+        _Game_Actor_changeEquipById.call(this, etypeId, itemId);
+        if (this.actorId() === PLAYER_ACTOR_ID) syncPets(this);
+    };
+
     const _Game_Party_setupStartingMembers = Game_Party.prototype.setupStartingMembers;
     Game_Party.prototype.setupStartingMembers = function() {
         _Game_Party_setupStartingMembers.call(this);
         syncPets(this.leader());
     };
 
-    const PLAYER_ACTOR_ID = 1;
-    const _Game_Party_addActor = Game_Party.prototype.addActor;
     Game_Party.prototype.addActor = function(actorId) {
         const actor = $gameActors.actor(actorId);
-        if (actor && actor.isAqwPet && actor.isAqwPet()) {
-            if (!this._actors.includes(actorId)) this._actors.push(actorId);
+        if (actorId !== PLAYER_ACTOR_ID && !(actor && actor.isAqwPet && actor.isAqwPet())) {
             return;
         }
-        if (actorId !== PLAYER_ACTOR_ID) return;
         _Game_Party_addActor.call(this, actorId);
     };
 
     Game_Party.prototype.maxBattleMembers = function() {
         return this._actors.length;
+    };
+
+    // Reconcile the equipped summon before RPG Maker builds the battle roster.
+    const _BattleManager_setup = BattleManager.setup;
+    BattleManager.setup = function(troopId, canEscape, canLose) {
+        syncPets($gameActors.actor(PLAYER_ACTOR_ID));
+        _BattleManager_setup.call(this, troopId, canEscape, canLose);
     };
 })();
