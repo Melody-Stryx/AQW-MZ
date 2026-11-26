@@ -77,7 +77,7 @@
     const _Game_Actor_forceChangeEquip = Game_Actor.prototype.forceChangeEquip;
     Game_Actor.prototype.forceChangeEquip = function(slotId, item) {
         _Game_Actor_forceChangeEquip.call(this, slotId, item);
-        if (this === $gameParty.leader()) syncPets(this);
+        if (this.actorId() === PLAYER_ACTOR_ID) syncPets(this);
     };
 
     const _Game_Party_members = Game_Party.prototype.members;
