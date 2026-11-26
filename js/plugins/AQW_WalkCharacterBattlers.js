@@ -833,7 +833,10 @@ function Sprite_WalkCharEnemy() {
 	const _Sprite_Actor_updateBitmap = Sprite_Actor.prototype.updateBitmap;
 	Sprite_Actor.prototype.updateBitmap = function () {
 		if (this._battler.isWalkBattler()) {
-			Sprite_Battler.prototype.updateBitmap.call(this);
+			// Do not call Sprite_Battler.updateBitmap here. It loads the actor's
+			// side-view battlerName and overwrites _mainSprite.bitmap, which races
+			// against the character-sheet bitmap loaded below. Walk battlers own
+			// their bitmap entirely through setupWalkCharacterBitmap().
 			const name = this._battler.walkBattlerName();
 			const index = this._battler.walkBattlerIndex();
 			if (this._battlerName !== name) {
