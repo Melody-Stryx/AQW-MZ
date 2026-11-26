@@ -850,16 +850,27 @@ function Sprite_WalkCharEnemy() {
 	};
 
 	Sprite_Actor.prototype.setupWalkCharacterBitmap = function (name) {
-		const scale = this._battler.walkBattlerScale();
+		const battler = this._battler;
+		const scale = battler.walkBattlerScale();
 		const source = ImageManager.loadCharacter(name);
-		const width = source.width * scale;
-		const height = source.height * scale;
-		this._mainSprite.bitmap = new Bitmap(width, height);
-		this._mainSprite.bitmap.smooth = false;
-		this._mainSprite.bitmap.blt(source, 0, 0, source.width, source.height, 0, 0, width, height);
-		if (this._mainSprite.texture.baseTexture) {
-			this._mainSprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
-		}
+		// Pet character sheets may not be cached when the battle sprite is first
+		// created. Build the scaled bitmap only after the source image is ready.
+		source.addLoadListener(() => {
+			if (this._battler !== battler || !this._battler ||
+				!this._battler.isWalkBattler() || this._battler.walkBattlerName() !== name) {
+				return;
+			}
+			const width = source.width * scale;
+			const height = source.height * scale;
+			const bitmap = new Bitmap(width, height);
+			bitmap.smooth = false;
+			bitmap.blt(source, 0, 0, source.width, source.height, 0, 0, width, height);
+			this._mainSprite.bitmap = bitmap;
+			if (this._mainSprite.texture.baseTexture) {
+				this._mainSprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+			}
+			this.updateFrame();
+		});
 	};
 
 	const _Sprite_Actor_updateFrame = Sprite_Actor.prototype.updateFrame;
