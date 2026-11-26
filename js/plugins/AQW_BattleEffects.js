@@ -7,6 +7,21 @@
  const DOT=/<AQWDoT:\s*([^>]+)>/i,HOT=/<AQWHoT:\s*([0-9.]+)>/i;
  const playerDamageMultiplier=()=>Math.max(2,($gameParty.leader()?.level||1)/50);
  const dotFormulaCache=new Map();
+ // Never store live battler objects inside another battler's save data.
+ // Store a small identity descriptor instead to keep JsonEx serialization acyclic.
+ function battlerReference(battler){
+  if(!battler)return null;
+  if(battler.isActor&&battler.isActor())return {type:"actor",id:battler.actorId()};
+  if(battler.isEnemy&&battler.isEnemy())return {type:"enemy",index:battler.index()};
+  return null;
+ }
+ function resolveBattlerReference(reference){
+  if(!reference)return null;
+  if(reference.type==="actor")return $gameActors.actor(reference.id);
+  if(reference.type==="enemy")return $gameTroop.members()[reference.index]||null;
+  // Backward compatibility for battlers referenced by older in-memory data.
+  return reference.isActor||reference.isEnemy?reference:null;
+ }
  function evaluateDotFormula(expression,caster,target){
   let formula=dotFormulaCache.get(expression);
   if(!formula){
@@ -51,7 +66,7 @@
    if(d||h){
     let amount;
     if(d&&/\b[AB]\s*\./i.test(d[1])){
-     const caster=this._aqwDotCasters&&this._aqwDotCasters[st.id]||$gameParty.leader();
+     const caster=resolveBattlerReference(this._aqwDotCasters&&this._aqwDotCasters[st.id])||$gameParty.leader();
      amount=Math.floor(evaluateDotFormula(d[1],caster,this));
     }else{
      const power=this._aqwEffectPower&&this._aqwEffectPower[st.id]||this.mat;
@@ -191,7 +206,7 @@
    if(item.id===108&&!target.isStateAffected(31))target.addState(32);
    if(item.id===208&&target.isStateAffected(33))target._aqwEffectPower={...(target._aqwEffectPower||{}),33:subject.atk};
    if(item.id===52&&target.isStateAffected(40))target._aqwEffectPower={...(target._aqwEffectPower||{}),40:subject.mat};
-   if(item.id===61)target._aqwEnergyFlowCaster=subject;
+   if(item.id===61)target._aqwEnergyFlowCaster=battlerReference(subject);
    if(item.id===172){subject.addState(42);target.addState(34);}
    if(item.id===216)subject.addState(43);
    if(item.id===218){subject.addState(44);target.addState(52);}
@@ -222,7 +237,7 @@
    if(item.id===241)target.addState(72);
   }
   if(target.isStateAffected(39)&&target.hp<before){
-   const caster=target._aqwEnergyFlowCaster;
+   const caster=resolveBattlerReference(target._aqwEnergyFlowCaster);
    if(caster&&caster.isAlive())caster.gainMp(Math.max(1,Math.floor((before-target.hp)*0.1)));
   }
   if(item&&item.id===201){
@@ -237,7 +252,7 @@
   for(const state of target.states()){
    if(/<AQWDoT:/i.test(state.note)&&(addedStates.includes(state.id)||!statesBefore.has(state.id))){
     target._aqwDotCasters=target._aqwDotCasters||{};
-    target._aqwDotCasters[state.id]=subject;
+    target._aqwDotCasters[state.id]=battlerReference(subject);
    }
   }
  };
