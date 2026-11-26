@@ -857,16 +857,26 @@ function Sprite_WalkCharEnemy() {
 	};
 
 	// <Side View Walker> keeps the equipped weapon's stats but suppresses
-	// RPG Maker's separate side-view weapon animation sprite.
+	// only RPG Maker's separate side-view weapon sprite. Use the battler bound
+	// to this sprite, since _actor is not consistently populated by every
+	// Sprite_Actor creation path (notably dynamically added battle pets).
 	Game_Actor.prototype.isSideViewWalker = function () {
 		return !!(this.actor() && this.actor()._wcb_sideViewWalker);
 	};
 
+	Sprite_Actor.prototype.isSideViewWalker = function () {
+		const battler = this._battler;
+		return !!(battler && battler.isActor && battler.isActor() &&
+			battler.actor && battler.actor()._wcb_sideViewWalker);
+	};
+
 	const _Sprite_Actor_setupWeaponAnimation = Sprite_Actor.prototype.setupWeaponAnimation;
 	Sprite_Actor.prototype.setupWeaponAnimation = function () {
-		if (this._actor && this._actor.isSideViewWalker && this._actor.isSideViewWalker()) {
-			this._actor.clearWeaponAnimation();
-			this._weaponSprite.visible = false;
+		if (this.isSideViewWalker()) {
+			if (this._battler && this._battler.clearWeaponAnimation) {
+				this._battler.clearWeaponAnimation();
+			}
+			if (this._weaponSprite) this._weaponSprite.visible = false;
 			return;
 		}
 		_Sprite_Actor_setupWeaponAnimation.apply(this, arguments);
@@ -875,7 +885,7 @@ function Sprite_WalkCharEnemy() {
 	const _Sprite_Actor_updateSideViewWalker = Sprite_Actor.prototype.update;
 	Sprite_Actor.prototype.update = function () {
 		_Sprite_Actor_updateSideViewWalker.apply(this, arguments);
-		if (this._actor && this._actor.isSideViewWalker && this._actor.isSideViewWalker()) {
+		if (this.isSideViewWalker() && this._weaponSprite) {
 			this._weaponSprite.visible = false;
 		}
 	};
