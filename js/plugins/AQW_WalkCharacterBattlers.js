@@ -478,11 +478,15 @@ function Sprite_WalkCharEnemy() {
 		const tag6 = /<Walk\s*Battler\s*Death\s*Type\s*:\s*(.*)\s*>/im;
 		const tagA = /<Walk\s*Battler\s*Victory\s*Motion\s*:\s*(.*)\s*>/im;
 		const tagE = /<Walk\s*Battler\s*Weapon\s*ID\s*:\s*(.*)\s*>/im;
+		const tagSideViewWalker = /<Side\s*View\s*Walker>/i;
 		for (let i = 1; i < data.length; i++) {
 			const battler = data[i];
 			if (battler) {
 				if (isActor && battler.characterName) {
 					ImageManager.loadCharacter(battler.characterName);
+				}
+				if (isActor && tagSideViewWalker.test(battler.note || '')) {
+					battler._wcb_sideViewWalker = true;
 				}
 				if (battler.note.match(tag1)) {
 					battler._wcb_battler = String(RegExp.$1);
@@ -849,6 +853,30 @@ function Sprite_WalkCharEnemy() {
 			}
 		} else {
 			_Sprite_Actor_updateBitmap.apply(this, arguments);
+		}
+	};
+
+	// <Side View Walker> keeps the equipped weapon's stats but suppresses
+	// RPG Maker's separate side-view weapon animation sprite.
+	Game_Actor.prototype.isSideViewWalker = function () {
+		return !!(this.actor() && this.actor()._wcb_sideViewWalker);
+	};
+
+	const _Sprite_Actor_setupWeaponAnimation = Sprite_Actor.prototype.setupWeaponAnimation;
+	Sprite_Actor.prototype.setupWeaponAnimation = function () {
+		if (this._actor && this._actor.isSideViewWalker && this._actor.isSideViewWalker()) {
+			this._actor.clearWeaponAnimation();
+			this._weaponSprite.visible = false;
+			return;
+		}
+		_Sprite_Actor_setupWeaponAnimation.apply(this, arguments);
+	};
+
+	const _Sprite_Actor_updateSideViewWalker = Sprite_Actor.prototype.update;
+	Sprite_Actor.prototype.update = function () {
+		_Sprite_Actor_updateSideViewWalker.apply(this, arguments);
+		if (this._actor && this._actor.isSideViewWalker && this._actor.isSideViewWalker()) {
+			this._weaponSprite.visible = false;
 		}
 	};
 
