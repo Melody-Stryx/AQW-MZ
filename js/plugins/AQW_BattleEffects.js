@@ -22,6 +22,22 @@
   // Backward compatibility for battlers referenced by older in-memory data.
   return reference.isActor||reference.isEnemy?reference:null;
  }
+
+ function sanitizeBattlerReferences(battler){
+  if(!battler)return;
+  if(battler._aqwEnergyFlowCaster&&
+     (battler._aqwEnergyFlowCaster.isActor||battler._aqwEnergyFlowCaster.isEnemy)){
+   battler._aqwEnergyFlowCaster=battlerReference(battler._aqwEnergyFlowCaster);
+  }
+  if(battler._aqwDotCasters){
+   for(const id of Object.keys(battler._aqwDotCasters)){
+    const caster=battler._aqwDotCasters[id];
+    if(caster&&(caster.isActor||caster.isEnemy)){
+     battler._aqwDotCasters[id]=battlerReference(caster);
+    }
+   }
+  }
+ }
  function evaluateDotFormula(expression,caster,target){
   let formula=dotFormulaCache.get(expression);
   if(!formula){
@@ -288,6 +304,15 @@
   if(this.isStateAffected(49))return 0;
   if(this.isStateAffected(51))value*=0.5;
   return Math.floor(value);
+ };
+
+ // Migrate any battler-object references created by older plugin versions
+ // before RPG Maker serializes the save contents.
+ const makeSaveContents=DataManager.makeSaveContents;
+ DataManager.makeSaveContents=function(){
+  for(const actor of $gameActors._data||[])sanitizeBattlerReferences(actor);
+  for(const enemy of $gameTroop.members())sanitizeBattlerReferences(enemy);
+  return makeSaveContents.call(this);
  };
 
 })();
