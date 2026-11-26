@@ -83,7 +83,12 @@
     const _Game_Party_members = Game_Party.prototype.members;
     Game_Party.prototype.members = function() {
         const members = _Game_Party_members.call(this);
-        return this.inBattle() ? members : members.filter(actor => !actor.isAqwPet || !actor.isAqwPet());
+        // Scene_Battle creates its spriteset before Scene_Battle.start() sets
+        // the party's inBattle flag. Include summons during that setup window.
+        const battleSceneActive = SceneManager._scene instanceof Scene_Battle;
+        return (this.inBattle() || battleSceneActive)
+            ? members
+            : members.filter(actor => !actor.isAqwPet || !actor.isAqwPet());
     };
 
     const _Game_Action_makeTargets = Game_Action.prototype.makeTargets;
