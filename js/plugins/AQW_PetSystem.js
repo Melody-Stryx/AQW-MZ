@@ -1,38 +1,77 @@
 /*:
  * @target MZ
- * @plugindesc AQW single-player party and autonomous, untargetable pets.
+ * @plugindesc AQW battle pets: equipment-driven summons with autonomous battle sprites.
  * @author AQW-MZ
  *
  * @help
- * Mark a pet actor with <AQWPet> in the actor's Note field.
- * Mark a pet equipment item with <PetActor: ACTOR_ID> in its Note field.
- * Equipping that item in the Pet slot adds the pet actor to battle.
+ * Actor note: <AQWPet>
+ * Equipment note: <PetActor: ACTOR_ID>
  *
- * Pet actors are auto-battle controlled, hidden from non-battle party
- * menus, and excluded from skill target lists (single and area targets).
- * The player actor remains the only manually controlled actor.
+ * Equipping an item with <PetActor: ID> on the player summons that pet in
+ * battle. Pets are auto-battle controlled, hidden outside battle, and cannot
+ * be selected as targets. Pet actors use their normal actor database setup
+ * and may use Walk Character Battlers for their battle graphics.
  */
 (() => {
     "use strict";
 
-    Game_Actor.prototype.isAqwPet = function() {
-        return !!(this.actor() && /<AQWPet>/i.test(this.actor().note || ""));
-    };
+    const PLAYER_ACTOR_ID = 1;
 
-    const _Game_Actor_isAutoBattle = Game_BattlerBase.prototype.isAutoBattle;
-    Game_BattlerBase.prototype.isAutoBattle = function() {
-        return (this.isActor && this.isActor() && this.isAqwPet && this.isAqwPet())
-            || _Game_Actor_isAutoBattle.call(this);
-    };
+    function isPetActor(actor) {
+        return !!(actor && actor.isActor && actor.isActor() &&
+            actor.actor && /<AQWPet>/i.test(actor.actor().note || ""));
+    }
 
-    function petActorId(item) {
+    function petIdFromEquip(item) {
         if (!item) return 0;
         const match = String(item.note || "").match(/<PetActor:\s*(\d+)\s*>/i);
         return match ? Number(match[1]) : 0;
     }
 
-    function equippedPetIds(actor) {
-        return actor.equips().map(petActorId).filter(id => id > 0);
+    function equippedPetIds(player) {
+        if (!player) return [];
+        const ids = player.equips().map(petIdFromEquip).filter(id => id > 0);
+        return [...new Set(ids)].filter(id => isPetActor($gameActors.actor(id)));
+    }
+
+    function activeBattleScene() {
+        return !!(SceneManager._scene && SceneManager._scene instanceof Scene_Battle);
+    }
+
+    function shouldPetsBeActive() {
+        return !!($gameParty && ($gameParty.inBattle() || activeBattleScene()));
+    }
+
+    function reconcilePartyPets(includePets = shouldPetsBeActive()) {
+        if (!$gameParty || !$gameActors) return false;
+        const player = $gameActors.actor(PLAYER_ACTOR_ID);
+        if (!player) return false;
+
+        const wanted = includePets ? equippedPetIds(player) : [];
+        const actorIds = $gameParty._actors || [];
+        const existingPets = actorIds.filter(id => isPetActor($gameActors.actor(id)));
+        let changed = false;
+
+        for (const id of existingPets) {
+            if (!wanted.includes(id)) {
+                $gameParty._actors.splice($gameParty._actors.indexOf(id), 1);
+                changed = true;
+            }
+        }
+
+        for (const id of wanted) {
+            if (!$gameParty._actors.includes(id)) {
+                $gameParty._actors.push(id);
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            if ($gamePlayer) $gamePlayer.refresh();
+            if ($gameMap) $gameMap.requestRefresh();
+            refreshBattleActorSprites();
+        }
+        return changed;
     }
 
     function refreshBattleActorSprites() {
@@ -40,127 +79,119 @@
         const spriteset = scene && scene._spriteset;
         if (!(scene instanceof Scene_Battle) || !spriteset || !spriteset._battleField) return;
 
-        // Rebuild the actor layer from the live battle roster. RPG Maker creates
-        // this layer once, so actors added later otherwise have no Sprite_Actor.
-        for (const sprite of spriteset._actorSprites || []) {
-            if (sprite.parent) sprite.parent.removeChild(sprite);
-        }
-        spriteset.createActors();
+        // Reconcile rather than recreating the whole layer. RPG Maker's own
+        // updateActors method continues to assign the current battle members.
         spriteset.updateActors();
 
-        // Explicitly re-run bitmap/frame setup after assigning each battler.
         for (const sprite of spriteset._actorSprites || []) {
             if (!sprite._battler) continue;
-            sprite._battlerName = null;
             sprite.updateBitmap();
             sprite.updateFrame();
-            if (sprite._mainSprite && sprite._mainSprite.bitmap) {
-                sprite._mainSprite.bitmap.baseTexture.update();
-            }
         }
     }
 
-    function syncPets(actor, includePets = $gameParty.inBattle()) {
-        // The player is the only party leader. Do not depend on $gameParty.members()
-        // here because that list intentionally hides pets outside battle.
-        if (!actor || actor.actorId() !== PLAYER_ACTOR_ID) return;
-
-        const wanted = includePets ? new Set(equippedPetIds(actor)) : new Set();
-        const currentPetIds = ($gameParty._actors || []).filter(id => {
-            const member = $gameActors.actor(id);
-            return member && member.isAqwPet && member.isAqwPet();
-        });
-
-        for (const id of currentPetIds) {
-            if (!wanted.has(id)) {
-                _Game_Party_removeActor.call($gameParty, id);
-            }
-        }
-
-        for (const id of wanted) {
-            const pet = $gameActors.actor(id);
-            if (pet && pet.isAqwPet() && !$gameParty._actors.includes(id)) {
-                _Game_Party_addActor.call($gameParty, id);
-            }
-        }
-
-        // Refresh party/map state after roster changes.
-        if ($gamePlayer) $gamePlayer.refresh();
-        if ($gameMap) $gameMap.requestRefresh();
-        refreshBattleActorSprites();
-    }
-
-    const PLAYER_ACTOR_ID = 1;
-    const _Game_Party_addActor = Game_Party.prototype.addActor;
-    const _Game_Party_removeActor = Game_Party.prototype.removeActor;
-
-    const _Game_Actor_changeEquip = Game_Actor.prototype.changeEquip;
-    Game_Actor.prototype.changeEquip = function(slotId, item) {
-        _Game_Actor_changeEquip.call(this, slotId, item);
-        if (this.actorId() === PLAYER_ACTOR_ID) syncPets(this);
-    };
-
-    const _Game_Actor_forceChangeEquip = Game_Actor.prototype.forceChangeEquip;
-    Game_Actor.prototype.forceChangeEquip = function(slotId, item) {
-        _Game_Actor_forceChangeEquip.call(this, slotId, item);
-        if (this.actorId() === PLAYER_ACTOR_ID) syncPets(this);
+    const _Game_BattlerBase_isAutoBattle = Game_BattlerBase.prototype.isAutoBattle;
+    Game_BattlerBase.prototype.isAutoBattle = function() {
+        return (this.isActor && this.isActor() && isPetActor(this))
+            || _Game_BattlerBase_isAutoBattle.call(this);
     };
 
     const _Game_Party_members = Game_Party.prototype.members;
     Game_Party.prototype.members = function() {
         const members = _Game_Party_members.call(this);
-        // Scene_Battle creates its spriteset before Scene_Battle.start() sets
-        // the party's inBattle flag. Include summons during that setup window.
-        const battleSceneActive = SceneManager._scene instanceof Scene_Battle;
-        return (this.inBattle() || battleSceneActive)
-            ? members
-            : members.filter(actor => !actor.isAqwPet || !actor.isAqwPet());
+        return shouldPetsBeActive() ? members : members.filter(member => !isPetActor(member));
     };
 
-    const _Game_Action_makeTargets = Game_Action.prototype.makeTargets;
-    Game_Action.prototype.makeTargets = function() {
-        const targets = _Game_Action_makeTargets.call(this);
-        return targets.filter(target => !target.isAqwPet || !target.isAqwPet());
+    const _Game_Party_maxBattleMembers = Game_Party.prototype.maxBattleMembers;
+    Game_Party.prototype.maxBattleMembers = function() {
+        return shouldPetsBeActive()
+            ? Math.max(_Game_Party_maxBattleMembers.call(this), this._actors.length)
+            : _Game_Party_maxBattleMembers.call(this);
     };
 
-    // Event commands and plugins may equip items through different methods.
-    // Reconcile after an equipment-by-ID operation as well.
-    const _Game_Actor_changeEquipById = Game_Actor.prototype.changeEquipById;
-    Game_Actor.prototype.changeEquipById = function(etypeId, itemId) {
-        _Game_Actor_changeEquipById.call(this, etypeId, itemId);
-        if (this.actorId() === PLAYER_ACTOR_ID) syncPets(this);
-    };
-
-    const _Game_Party_setupStartingMembers = Game_Party.prototype.setupStartingMembers;
-    Game_Party.prototype.setupStartingMembers = function() {
-        _Game_Party_setupStartingMembers.call(this);
-        syncPets(this.leader());
-    };
-
+    const _Game_Party_addActor = Game_Party.prototype.addActor;
     Game_Party.prototype.addActor = function(actorId) {
         const actor = $gameActors.actor(actorId);
-        if (actorId !== PLAYER_ACTOR_ID && !(actor && actor.isAqwPet && actor.isAqwPet())) {
-            return;
-        }
+        if (actorId !== PLAYER_ACTOR_ID && !isPetActor(actor)) return;
         _Game_Party_addActor.call(this, actorId);
         refreshBattleActorSprites();
     };
 
-    Game_Party.prototype.maxBattleMembers = function() {
-        return this._actors.length;
+    const _Game_Party_removeActor = Game_Party.prototype.removeActor;
+    Game_Party.prototype.removeActor = function(actorId) {
+        _Game_Party_removeActor.call(this, actorId);
+        refreshBattleActorSprites();
     };
 
-    // Remove pets after battle so the exploration party stays clean.
+    // RPG Maker creates actor sprites once at battle setup. Keep that layer
+    // synchronized as pets are summoned or dismissed during an active battle.
+    const _Spriteset_Battle_updateActors = Spriteset_Battle.prototype.updateActors;
+    Spriteset_Battle.prototype.updateActors = function() {
+        const members = $gameParty.battleMembers();
+        this._actorSprites = this._actorSprites || [];
+
+        while (this._actorSprites.length > members.length) {
+            const sprite = this._actorSprites.pop();
+            if (sprite.parent) sprite.parent.removeChild(sprite);
+            sprite.destroy({ children: true });
+        }
+
+        while (this._actorSprites.length < members.length) {
+            const sprite = new Sprite_Actor();
+            this._actorSprites.push(sprite);
+            this._battleField.addChild(sprite);
+        }
+
+        _Spriteset_Battle_updateActors.call(this);
+    };
+
+    // Pets are not valid targets, even for random or all-target actions.
+    const _Game_Action_makeTargets = Game_Action.prototype.makeTargets;
+    Game_Action.prototype.makeTargets = function() {
+        return _Game_Action_makeTargets.call(this).filter(target => !isPetActor(target));
+    };
+
+    function syncAfterEquipmentChange(actor) {
+        if (actor && actor.actorId() === PLAYER_ACTOR_ID) {
+            reconcilePartyPets(shouldPetsBeActive());
+        }
+    }
+
+    const _Game_Actor_changeEquip = Game_Actor.prototype.changeEquip;
+    Game_Actor.prototype.changeEquip = function(slotId, item) {
+        _Game_Actor_changeEquip.call(this, slotId, item);
+        syncAfterEquipmentChange(this);
+    };
+
+    const _Game_Actor_forceChangeEquip = Game_Actor.prototype.forceChangeEquip;
+    Game_Actor.prototype.forceChangeEquip = function(slotId, item) {
+        _Game_Actor_forceChangeEquip.call(this, slotId, item);
+        syncAfterEquipmentChange(this);
+    };
+
+    const _Game_Actor_changeEquipById = Game_Actor.prototype.changeEquipById;
+    Game_Actor.prototype.changeEquipById = function(etypeId, itemId) {
+        _Game_Actor_changeEquipById.call(this, etypeId, itemId);
+        syncAfterEquipmentChange(this);
+    };
+
+    const _BattleManager_setup = BattleManager.setup;
+    BattleManager.setup = function(troopId, canEscape, canLose) {
+        reconcilePartyPets(true);
+        _BattleManager_setup.call(this, troopId, canEscape, canLose);
+    };
+
     const _Game_Party_onBattleEnd = Game_Party.prototype.onBattleEnd;
     Game_Party.prototype.onBattleEnd = function() {
         _Game_Party_onBattleEnd.call(this);
-        syncPets($gameActors.actor(PLAYER_ACTOR_ID), false);
+        reconcilePartyPets(false);
     };
 
-    // Add equipped summons before RPG Maker initializes the battle roster.
-    const _BattleManager_setup = BattleManager.setup;
-    BattleManager.setup = function(troopId, canEscape, canLose) {
-        syncPets($gameActors.actor(PLAYER_ACTOR_ID), true);
-        _BattleManager_setup.call(this, troopId, canEscape, canLose);
+    // Reconcile once the battle scene and its spriteset have been constructed.
+    const _Scene_Battle_start = Scene_Battle.prototype.start;
+    Scene_Battle.prototype.start = function() {
+        reconcilePartyPets(true);
+        _Scene_Battle_start.call(this);
+        refreshBattleActorSprites();
     };
 })();
