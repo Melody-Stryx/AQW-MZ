@@ -35,6 +35,31 @@
         return actor.equips().map(petActorId).filter(id => id > 0);
     }
 
+    function refreshBattleActorSprites() {
+        const scene = SceneManager._scene;
+        const spriteset = scene && scene._spriteset;
+        if (!(scene instanceof Scene_Battle) || !spriteset || !spriteset._battleField) return;
+
+        // Rebuild the actor layer from the live battle roster. RPG Maker creates
+        // this layer once, so actors added later otherwise have no Sprite_Actor.
+        for (const sprite of spriteset._actorSprites || []) {
+            if (sprite.parent) sprite.parent.removeChild(sprite);
+        }
+        spriteset.createActors();
+        spriteset.updateActors();
+
+        // Explicitly re-run bitmap/frame setup after assigning each battler.
+        for (const sprite of spriteset._actorSprites || []) {
+            if (!sprite._battler) continue;
+            sprite._battlerName = null;
+            sprite.updateBitmap();
+            sprite.updateFrame();
+            if (sprite._mainSprite && sprite._mainSprite.bitmap) {
+                sprite._mainSprite.bitmap.baseTexture.update();
+            }
+        }
+    }
+
     function syncPets(actor, includePets = $gameParty.inBattle()) {
         // The player is the only party leader. Do not depend on $gameParty.members()
         // here because that list intentionally hides pets outside battle.
@@ -62,6 +87,7 @@
         // Refresh party/map state after roster changes.
         if ($gamePlayer) $gamePlayer.refresh();
         if ($gameMap) $gameMap.requestRefresh();
+        refreshBattleActorSprites();
     }
 
     const PLAYER_ACTOR_ID = 1;
@@ -117,6 +143,7 @@
             return;
         }
         _Game_Party_addActor.call(this, actorId);
+        refreshBattleActorSprites();
     };
 
     Game_Party.prototype.maxBattleMembers = function() {
