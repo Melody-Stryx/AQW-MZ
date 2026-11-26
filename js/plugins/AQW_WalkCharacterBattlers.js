@@ -856,24 +856,26 @@ function Sprite_WalkCharEnemy() {
 		const battler = this._battler;
 		const scale = battler.walkBattlerScale();
 		const source = ImageManager.loadCharacter(name);
-		// Pet character sheets may not be cached when the battle sprite is first
-		// created. Build the scaled bitmap only after the source image is ready.
-		source.addLoadListener(() => {
+		// Use the original character-sheet bitmap. Avoid an asynchronous blit into
+		// a temporary Bitmap, which can leave the actor sprite with a stale texture.
+		const applyBitmap = () => {
 			if (this._battler !== battler || !this._battler ||
 				!this._battler.isWalkBattler() || this._battler.walkBattlerName() !== name) {
 				return;
 			}
-			const width = source.width * scale;
-			const height = source.height * scale;
-			const bitmap = new Bitmap(width, height);
-			bitmap.smooth = false;
-			bitmap.blt(source, 0, 0, source.width, source.height, 0, 0, width, height);
-			this._mainSprite.bitmap = bitmap;
-			if (this._mainSprite.texture.baseTexture) {
-				this._mainSprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+			this._mainSprite.bitmap = source;
+			this._mainSprite.scale.set(scale, scale);
+			if (source.baseTexture) {
+				source.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+				source.baseTexture.update();
 			}
 			this.updateFrame();
-		});
+		};
+		if (source.isReady()) {
+			applyBitmap();
+		} else {
+			source.addLoadListener(applyBitmap);
+		}
 	};
 
 	const _Sprite_Actor_updateFrame = Sprite_Actor.prototype.updateFrame;
